@@ -146,12 +146,10 @@ executePLSQL(...buyBook(1, 1, 15))
 ```javascript
 const zipObject = require('lodash/zipObject');
 
-const zipParams = (params, type) => {
-    Object.assign({}, zipObject([...Array(params.length).keys()], params))
-    return Object.assign({}, zipObject([...Array(params.length).keys()], params), {
+const zipParams = (params, type) =>
+    Object.assign({}, zipObject([...Array(params.length).keys()], params), {
         result: { dir: oracledb.BIND_OUT, type, maxSize: 2000 }
     });
-};
 ```
 
 Теперь напишем вспомогательную функцию `getBooksCSVbyPublisher` по типу ранее описанной `buyBook`:
