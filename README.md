@@ -107,3 +107,85 @@ const f = async() => {
     console.log(plsqlResult);
 }
 ```
+
+Используя `.then` на объекте промиса, возвращаемого функцией `executePLSQL`:
+
+```javascript
+executePLSQL(...buyBook(1, 1, 15))
+  .then(data => console.log(data))
+  .catch(err => console.log(err));
+```
+
+Ниже представлен пример выполнения хранимой в бд функции, которая возвращает значение.
+
+Пример кода функции в бд:
+
+```sql
+  function get_books_csv_by_publisher(publisher_id in publishers.id%type) return varchar2 as
+    result varchar2(2000);
+    book_name books.name%type;
+    cursor books_cur is select books.name from books where books.publisher_id = publisher_id;
+    begin
+        result := '';
+        open books_cur;
+        loop
+          fetch books_cur into book_name;
+          exit when books_cur%notfound;
+          result := result || book_name || ',';
+        end loop;
+        close books_cur;
+        
+        return result;
+    end get_books_csv_by_publisher;
+```
+
+В случае, когда нам нужно получить значение, возвращаемое хранимой в бд функцией, `connection.execute` вторым параметром будет принимать объект специального вида, а не массив, как раньше. Объект должен будет содержать поля, обозначающие тип возвращаемого значения, его размер и направление (н-р, BIND_OUT). 
+
+Для этого напишем вспомогательную функцию, которая будет принимать массив наших параметров для запроса и тип возвращаемого значения, а возвращать будет объект нужного вида. `zipObject` - функция из пакета [lodash](https://github.com/lodash/lodash).
+
+```javascript
+const zipObject = require('lodash/zipObject');
+
+const zipParams = (params, type) => {
+    Object.assign({}, zipObject([...Array(params.length).keys()], params))
+    return Object.assign({}, zipObject([...Array(params.length).keys()], params), {
+        result: { dir: oracledb.BIND_OUT, type, maxSize: 2000 }
+    });
+};
+```
+
+Теперь напишем вспомогательную функцию `getBooksCSVbyPublisher` по типу ранее описанной `buyBook`:
+
+```javascript
+const getBooksCSVbyPublisher = (id) => [
+    `begin :result := ${PACKAGE}.get_books_csv_by_publisher(:0); end;`,
+    zipParams([id], oracledb.STRING)
+];
+```
+
+Примеры использования представлены ниже.
+
+Внутри `async` функции:
+
+```javascript
+const f = async() => {
+    try {
+        const dbResponse = await executePLSQL(...getBooksCSVbyPublisher(1));
+        const jsonResponse = JSON.stringify(dbResponse.outBinds.result.slice(0, -1));
+        console.log(jsonResponse);
+    } catch (e) {
+        console.log(e);
+    }
+}
+```
+
+Второй вариант:
+
+```javascript
+executePLSQL(...getBooksCSVbyPublisher(1))
+  .then(dbResponse => {
+        const jsonResponse = JSON.stringify(dbResponse.outBinds.result.slice(0, -1));
+        console.log(jsonResponse);
+  })
+  .catch(err => console.log(err));
+```
