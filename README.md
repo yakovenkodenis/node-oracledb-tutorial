@@ -58,3 +58,52 @@ const executePLSQL = (statement, params=[]) =>
 
 Выозов `oracledb.getConnection` вернёт промис, в который будет передан объект `connection`. Объект `connection` позволяет выполнять запросы непосредственно к базе данных (метод `connection.execute`). После выполнения необходимых операций с базой данных, соединение `connection` нужно освобождать, используя метод `connection.release()`.
 
+### Примеры выполнения запросов
+
+Допустим, мы хотим выполнить вызов хранимой процедуры, которая в базе данных была объявлена следующим образом:
+
+```sql
+  procedure buy_book(user_id users.id%type, book_id books.id%type, books_count books.available_count%type) is
+    currently_available_books books.available_count%type;
+    not_enough_books_in_store exception;
+    negative_or_zero_count exception;
+    begin
+      select available_count into currently_available_books from books where id = book_id;
+
+      if currently_available_books - books_count < 0 then
+        raise not_enough_books_in_store;
+      elsif books_count <= 0 then
+        raise negative_or_zero_count;
+      end if;
+      
+      insert into sales values (sales_seq.nextval, sysdate, user_id, book_id, books_count);
+      
+      exception
+        when not_enough_books_in_store then
+          raise_application_error(-20001, 'Not enough books in store');
+        when negative_or_zero_count then
+          raise_application_error(-20002, 'You cannot buy 0 or less books');
+    end buy_book;
+```
+
+Для этого напишем простую функцию, которая будет принимать параметры, необходимые для вызова процедуры (`user_id`, `book_id`, `books_count`), а возвращать будет массив, состоящий из двух элементов: первый эдемент - строка с запросом, второй элемент - массив параметров. Тут мы используем массив, потому что далее будет удобно пользоватья spread-оператором при вызове `executePLSQL`.
+
+```javascript
+const buyBook = (userId, bookId, booksCount) => [
+    'begin buy_book(:user_id, :book_id, :books_count); end;',
+    [userId, bookId, booksCount]
+];
+```
+
+Имена параметром в строке запроса не имеют значения, важен только их порядок, который должен совпадать с порядком значений в массиве параметров.
+
+Использовать нашу функцию можно будет следующим образом:
+
+Внутри фукцнии, объявленной как `async`:
+
+```javascript
+const f = async() => {
+    const plsqlResult = await executePLSQL(...buyBook(1, 1, 15));
+    console.log(plsqlResult);
+}
+```
