@@ -189,3 +189,9 @@ executePLSQL(...getBooksCSVbyPublisher(1))
   })
   .catch(err => console.log(err));
 ```
+
+-------------------------
+
+Выше были описаны базовые примеры использования драйвера [node-oracledb](https://github.com/oracle/node-oracledb). Для более продвинутых вариантов использования стоит обращаться к [официальной документации](https://github.com/oracle/node-oracledb/blob/master/doc/api.md)
+
+----------------------
