@@ -156,7 +156,7 @@ const zipParams = (params, type) =>
 
 ```javascript
 const getBooksCSVbyPublisher = (id) => [
-    `begin :result := ${PACKAGE}.get_books_csv_by_publisher(:0); end;`,
+    `begin :result := get_books_csv_by_publisher(:0); end;`,
     zipParams([id], oracledb.STRING)
 ];
 ```
