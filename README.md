@@ -176,7 +176,6 @@ executePLSQL(...buyBook(1, 1, 15))
           result := result || book_name || ',';
         end loop;
         close books_cur;
-        
         return result;
     end get_books_csv_by_publisher;
 ```
